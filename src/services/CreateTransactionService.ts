@@ -1,7 +1,7 @@
-import { getRepository } from 'typeorm';
+import { getRepository, getCustomRepository } from 'typeorm';
 
 import AppError from '../errors/AppError';
-
+import TransactionsRepository from '../repositories/TransactionsRepository';
 import Transaction from '../models/Transaction';
 import Category from '../models/Category';
 
@@ -19,6 +19,15 @@ class CreateTransactionService {
     type,
     category,
   }: Request): Promise<Transaction> {
+    const transactionRepository = getCustomRepository(TransactionsRepository);
+    const balance = await transactionRepository.getBalance();
+
+    if (type === 'outcome') {
+      if (value > balance.total) {
+        throw new AppError('Insuficient total value', 400);
+      }
+    }
+
     const categories = getRepository(Category);
     let categoryExistent = await categories.findOne({
       where: { title: category },
@@ -37,7 +46,7 @@ class CreateTransactionService {
       category_id: categoryExistent.id,
     });
 
-    transactions.save(transaction);
+    await transactions.save(transaction);
 
     return transaction;
   }
